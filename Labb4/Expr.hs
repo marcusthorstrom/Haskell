@@ -4,6 +4,7 @@ import Parsing
 import Test.QuickCheck
 import Data.Char
 import Data.Maybe
+import Debug.Trace
 
 -- Part 1
 -- A
@@ -22,8 +23,11 @@ data Expr
 instance Show Expr where
  show = showExpr
 
---instance Arbitrary Expr where
---  arbitrary = sized rExpr
+-- instance Arbitrary Expr where
+--   arbitrary = sized arbExpr
+
+--arbExpr :: Int -> Gen Expr
+
 
 showExpr :: Expr -> String
 showExpr (Num n)   = show n
@@ -51,6 +55,12 @@ eval (Cos a) x   = cos ((eval a x))
 
 -- D
 
+string :: String -> Parser String
+string ""    = return ""
+string (c:s) = do c' <- char c
+                  s' <- string s
+                  return (c':s')
+
 integer :: Parser Double
 integer = nat <|> fmap negate (char '-' *> nat)
 --integer = oneOrMore digit >>= \ds -> return (read ds)
@@ -61,15 +71,26 @@ num :: Parser Expr
 num = fmap Num integer
 
 expr = foldr1 Add `fmap` chain term (char '+')
-term = foldr1 Mul `fmap` chain factor (char '*')
-factor = char '(' *> sincos <* char ')' <|> num
+term = foldr1 Mul `fmap` chain sincos (char '*')
+factor = char '(' *> expr <* char ')' <|> num
 
-sincos = sat (=='s') *> sat (=='i') *> sat (=='n') *> fmap Sin expr <|>
-       sat (=='c') *> sat (=='o') *> sat (=='s') *> fmap Cos expr
+--var = char 'x'
 
+sincos = string "sin" *> fmap Sin factor <|>
+         string "cos" *> fmap Cos factor <|>
+         factor
+
+--sincos = sat (=='s') *> sat (=='i') *> sat (=='n') *> fmap Sin expr <|>
+--         sat (=='c') *> sat (=='o') *> sat (=='s') *> fmap Cos expr <|>
+--         expr
 
 readExpr :: String -> Maybe Expr
 readExpr s = let s' = map toLower (filter (not.isSpace) s)
               in case parse expr s' of
                 Just (e, "") -> Just e
                 _            -> Nothing
+
+
+prop_ShowReadExpr :: Expr -> Bool
+prop_ShowReadExpr e1 = let e2 = readExpr (show e1) in
+                        Just e1 == e2
