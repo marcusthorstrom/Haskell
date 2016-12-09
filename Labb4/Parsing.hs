@@ -10,7 +10,7 @@ Used in the course Functional Programming GU/Chalmers.
 Original author: David Sands.
 -}
 
-module Parsing 
+module Parsing
  ( -- * The Parser type
    Parser -- exports the type name but not the constructors
   ,parse
@@ -31,12 +31,12 @@ module Parsing
   ,(*>)
   -- ** Return a result without consuming any input
   , return
- ) 
+ )
 
 {----------------------
 
-Aim: reusable Parser combinators including 
- a new type for the Parser, 
+Aim: reusable Parser combinators including
+ a new type for the Parser,
  but no export of the constructor
 
 Changes (v3 2016) Thomas Hallgren
@@ -44,17 +44,17 @@ Export <* and *> from class Applicative instead of the combinators <-< and >->
 Export <|> from class Alternative instead of +++
 
 Changes (v2 2015)
-For compatibility with GHC>=7.10 Parser 
+For compatibility with GHC>=7.10 Parser
 is now also instance Applicative
 
-Removal: Class Functor, Applicative and Monad provide a number of 
+Removal: Class Functor, Applicative and Monad provide a number of
 functions that were previously exported explicitly, in particular
 (>*>) is available as the bind operation (>>=),
 success is return, pmap is fmap.
 
 Additional function:
-readsP :: Read a => Parser a  
--- satisfies 
+readsP :: Read a => Parser a
+-- satisfies
 -- parse readsP s == listToMaybe (reads s)
 
 ----------------------}
@@ -65,7 +65,7 @@ import Data.Maybe(listToMaybe)
 -- boilerplate for GHC 10.7 compatibility:
 import Control.Applicative (Applicative(..),Alternative(..))
 import Control.Monad       (liftM, ap)
- 
+
 ------------------
 
 
@@ -74,7 +74,7 @@ import Control.Monad       (liftM, ap)
 -- | The abstract data type representing a Parser
 newtype Parser a = P (String -> Maybe (a,String))
 
--- | Runs the parser on the given string 
+-- | Runs the parser on the given string
 --  to return maybe a thing and a string
 parse :: Parser a -> String -> Maybe(a,String)
 parse (P f ) s = f s
@@ -85,22 +85,22 @@ parse (P f ) s = f s
 -- prop> parse readsP s == listToMaybe (reads s)
 
 readsP :: Read a => Parser a
-readsP = P $ listToMaybe . reads 
-               
-------------------- 
+readsP = P $ listToMaybe . reads
+
+-------------------
 -- | Parser than can never succeed
 failure :: Parser a -- always fails
-failure    = P $ \s -> 
+failure    = P $ \s ->
              Nothing
- 
+
 -- | Parser that succeeds without looking at the String
-success :: a -> Parser a 
+success :: a -> Parser a
 success a  = P $ \s ->
              Just (a,s)
 
 -- | Parse any single character
 item  = P $ \s ->
-         case s of 
+         case s of
               (c:s') -> Just (c,s')
               ""     -> Nothing
 
@@ -114,18 +114,18 @@ p +++ q  = P $ \s ->
                   r       -> r
 
 
--- (p >*> f) parse using p to produce a. 
--- Then parse using f a 
+-- (p >*> f) parse using p to produce a.
+-- Then parse using f a
 
 infixl 1 >*>
 
 (>*>) :: Parser a -> (a -> Parser b) -> Parser b
-p >*> f  = P $ \s -> 
-            case parse p s of 
+p >*> f  = P $ \s ->
+            case parse p s of
                  Just (a,s') -> parse (f a) s'
                  Nothing     -> Nothing
 -----------------------------------------------
--- Parsers below do not depend on the internal 
+-- Parsers below do not depend on the internal
 -- representation of Parser
 
 -- | parse a single character satisfying property p
@@ -139,23 +139,23 @@ digit = sat isDigit
 -- | Parse a specific character
 char c = sat (==c)
 
--- example: parse any lowercase letter 
+-- example: parse any lowercase letter
 -- followed by its uppercase equivalent aA or bB etc.
 ex1 = sat isAsciiLower >*> char . toUpper
 
 -- pmap modifies the result of a parser
 
 
--- | Parse a thing, then parse a list of things, and 
+-- | Parse a thing, then parse a list of things, and
 -- return the first thing followed by the list of things
 (<:>):: Parser a -> Parser [a] -> Parser [a]
-p <:> q = p >*> \a -> fmap (a:) q 
+p <:> q = p >*> \a -> fmap (a:) q
 
--- | Parse zero or more things 
+-- | Parse zero or more things
 zeroOrMore :: Parser a -> Parser [a]
 zeroOrMore p = oneOrMore p +++ success []
 
--- | Parse one or more things 
+-- | Parse one or more things
 oneOrMore :: Parser a -> Parser [a]
 oneOrMore  p = p <:> zeroOrMore p
 
@@ -165,8 +165,8 @@ chain p q = p <:> zeroOrMore (q *> p)
 
 -- example: comma separated digits "1,2,3"
 
--- Standard definition for Functor and Applicative for 
--- GHC>=7.10 compatibility 
+-- Standard definition for Functor and Applicative for
+-- GHC>=7.10 compatibility
 instance Functor Parser where
     fmap = liftM
 
@@ -176,7 +176,7 @@ instance Applicative Parser where
 
 instance Monad Parser where
     (>>=)  = (>*>)
-    return = pure 
+    return = pure
 
 instance Alternative Parser where
   empty = failure

@@ -66,24 +66,21 @@ integer = nat <|> fmap negate (char '-' *> nat)
 --integer = oneOrMore digit >>= \ds -> return (read ds)
 
 nat :: Parser Double
---nat = oneOrMore digit >>= return . read
-nat = oneOrMore digit *> char '.' *> oneOrMore digit >>= return . read
+nat = do
+  bf <- oneOrMore digit
+  af <- (char '.' <:> oneOrMore digit)
+  return (read (bf++af) :: Double)
 
-var :: Parser Expr
-var = char 'x' *> return VarX <|> num
 
 
 num :: Parser Expr
-num = fmap Num integer
-
---num k = case (read k :: [(Double, String)]) of
---        [(a, s)] -> Just (Num a, s)
---        []       -> Nothing
+num = fmap Num integer <|>
+      char 'x' *> return VarX
 
 
 expr = foldr1 Add `fmap` chain term (char '+')
 term = foldr1 Mul `fmap` chain sincos (char '*')
-factor = char '(' *> expr <* char ')' <|> var
+factor = char '(' *> expr <* char ')' <|> num
 
 --var = char 'x'
 
