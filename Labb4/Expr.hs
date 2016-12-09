@@ -23,8 +23,22 @@ data Expr
 instance Show Expr where
  show = showExpr
 
--- instance Arbitrary Expr where
---   arbitrary = sized arbExpr
+instance Arbitrary Expr where
+   arbitrary = frequency [
+       (5, return VarX),
+       (1, do expr1 <- arbitrary
+              expr2 <- arbitrary
+              return (Add expr1 expr2)),
+       (1, do expr1 <- arbitrary
+              expr2 <- arbitrary
+              return (Add expr1 expr2)),
+       (1, do expr <- arbitrary
+              return (Sin expr)),
+       (1, do expr <- arbitrary
+              return (Cos expr)),
+       (9, do num <- arbitrary
+              return (Num num))
+              ]
 
 --arbExpr :: Int -> Gen Expr
 
@@ -41,6 +55,8 @@ showExpr (Cos a)   = "Cos " ++ showFactor a
 showFactor :: Expr -> String
 showFactor (Add a b) = "(" ++ showExpr (Add a b) ++ ")"
 showFactor (Mul a b) = "(" ++ showExpr (Mul a b) ++ ")"
+showFactor (Cos a)   = "(" ++ showExpr (Cos a) ++ ")"
+showFactor (Sin a)   = "(" ++ showExpr (Sin a) ++ ")"
 showFactor e = showExpr e
 
 
