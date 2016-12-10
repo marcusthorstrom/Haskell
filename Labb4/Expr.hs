@@ -12,6 +12,7 @@ data Expr
   = Num Double
   | VarX
   | Add Expr Expr
+  | Sub Expr Expr
   | Mul Expr Expr
   | Sin Expr
   | Cos Expr
@@ -31,6 +32,9 @@ instance Arbitrary Expr where
               return (Add expr1 expr2)),
        (1, do expr1 <- arbitrary
               expr2 <- arbitrary
+              return (Sub expr1 expr2)),
+       (1, do expr1 <- arbitrary
+              expr2 <- arbitrary
               return (Add expr1 expr2)),
        (1, do expr <- arbitrary
               return (Sin expr)),
@@ -47,6 +51,7 @@ showExpr :: Expr -> String
 showExpr (Num n)   = show n
 showExpr (VarX)    = "x"
 showExpr (Add a b) = showFactor a ++ "+" ++ showFactor b
+showExpr (Sub a b) = showFactor a ++ "-" ++ showFactor b
 showExpr (Mul a b) = showFactor a ++ "*" ++ showFactor b
 showExpr (Sin a)   = "Sin " ++ showFactor a
 showExpr (Cos a)   = "Cos " ++ showFactor a
@@ -54,6 +59,7 @@ showExpr (Cos a)   = "Cos " ++ showFactor a
 
 showFactor :: Expr -> String
 showFactor (Add a b) = "(" ++ showExpr (Add a b) ++ ")"
+showFactor (Sub a b) = "(" ++ showExpr (Sub a b) ++ ")"
 showFactor (Mul a b) = "(" ++ showExpr (Mul a b) ++ ")"
 showFactor (Cos a)   = "(" ++ showExpr (Cos a) ++ ")"
 showFactor (Sin a)   = "(" ++ showExpr (Sin a) ++ ")"
@@ -65,6 +71,7 @@ eval :: Expr -> Double -> Double
 eval (Num d) x   = d
 eval (VarX) x    = x
 eval (Add a b) x = (eval a x) + (eval b x)
+eval (Sub a b) x = (eval a x) - (eval b x)
 eval (Mul a b) x = (eval a x) * (eval b x)
 eval (Sin a) x   = sin ((eval a x))
 eval (Cos a) x   = cos ((eval a x))
@@ -78,8 +85,15 @@ string (c:s) = do c' <- char c
                   return (c':s')
 
 integer :: Parser Double
-integer = nat <|> fmap negate (char '-' *> nat)
+integer = negInteger <|> posInteger
 --integer = oneOrMore digit >>= \ds -> return (read ds)
+
+posInteger :: Parser Double
+posInteger = nat <|> (oneOrMore digit >>= return . read)
+
+negInteger :: Parser Double
+negInteger = fmap negate (char '-' *> nat) <|>
+              fmap negate (char '-' *> (oneOrMore digit >>= return . read))
 
 nat :: Parser Double
 nat = do
@@ -88,13 +102,13 @@ nat = do
   return (read (bf++af) :: Double)
 
 
-
 num :: Parser Expr
-num = fmap Num integer <|>
+num = fmap Num readsP <|>
       char 'x' *> return VarX
 
 
-expr = foldr1 Add `fmap` chain term (char '+')
+expr = foldr1 Add `fmap` chain sub (char '+')
+sub = foldr1 Sub `fmap` chain term (char '-')
 term = foldr1 Mul `fmap` chain sincos (char '*')
 factor = char '(' *> expr <* char ')' <|> num
 
@@ -104,9 +118,6 @@ sincos = string "sin" *> fmap Sin factor <|>
          string "cos" *> fmap Cos factor <|>
          factor
 
---sincos = sat (=='s') *> sat (=='i') *> sat (=='n') *> fmap Sin expr <|>
---         sat (=='c') *> sat (=='o') *> sat (=='s') *> fmap Cos expr <|>
---         expr
 
 readExpr :: String -> Maybe Expr
 readExpr s = let s' = map toLower (filter (not.isSpace) s)
@@ -115,6 +126,32 @@ readExpr s = let s' = map toLower (filter (not.isSpace) s)
                 _            -> Nothing
 
 
-prop_ShowReadExpr :: Expr -> Bool
-prop_ShowReadExpr e1 = let e2 = readExpr (show e1) in
-                        Just e1 == e2
+
+
+-- F
+simplify :: Expr -> Expr
+simplify (Mul a b) | b == (Num 0) = (Num 0)
+simplify (Mul a b) | a == (Num 0) = (Num 0)
+
+simplify (Mul a b) | b == (Num 1) = a
+simplify (Mul a b) | a == (Num 1) = b
+
+simplify (Add a b) | b == (Num 0) = a
+simplify (Add a b) | a == (Num 0) = b
+
+simplify (Sub a b) | b == (Num 0) = a
+
+simplify (Add (Num a) (Num b)) = (Num (a+b))
+simplify (Mul (Num a) (Num b)) = (Num (a*b))
+
+
+-- G
+-- SV: Derivera
+differentiate :: Expr -> Expr
+differentiate (Mul (VarX) (VarX)) = VarX
+differentiate (Mul VarX b) = b
+differentiate (Mul a VarX) = a
+differentiate (Sin a) = (Cos a)
+differentiate (Cos a) = (Sub (Num 0) (Sin a))
+differentiate (Num a) = (Num 0)
+differentiate (Add a b) = Add (differentiate a) (differentiate b)
