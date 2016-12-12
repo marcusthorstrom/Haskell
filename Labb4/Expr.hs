@@ -133,25 +133,42 @@ simplify :: Expr -> Expr
 simplify (Mul a b) | b == (Num 0) = (Num 0)
 simplify (Mul a b) | a == (Num 0) = (Num 0)
 
-simplify (Mul a b) | b == (Num 1) = a
-simplify (Mul a b) | a == (Num 1) = b
+simplify (Mul a b) | b == (Num 1) = simplify a
+simplify (Mul a b) | a == (Num 1) = simplify b
 
-simplify (Add a b) | b == (Num 0) = a
-simplify (Add a b) | a == (Num 0) = b
+simplify (Add a b) | b == (Num 0) = simplify a
+simplify (Add a b) | a == (Num 0) = simplify b
 
-simplify (Sub a b) | b == (Num 0) = a
+simplify (Sub a b) | b == (Num 0) = simplify a
+
+simplify (Add (Sin a) (Sin b)) | a == b = (Mul (Num 2) (Sin (simplify a)))
+simplify (Add (Cos a) (Cos b)) | a == b = (Mul (Num 2) (Cos (simplify a)))
 
 simplify (Add (Num a) (Num b)) = (Num (a+b))
 simplify (Mul (Num a) (Num b)) = (Num (a*b))
+
+simplify (Num a) = (Num a)
+simplify (VarX) = VarX
+simplify (Mul a b) = (Mul (simplify a) (simplify b))
+simplify (Add a b) = (Add (simplify a) (simplify b))
+simplify (Sub a b) = (Sub (simplify a) (simplify b))
+simplify (Sin a) = (Sin (simplify a))
+simplify (Cos a) = (Cos (simplify a))
 
 
 -- G
 -- SV: Derivera
 differentiate :: Expr -> Expr
-differentiate (Mul (VarX) (VarX)) = VarX
-differentiate (Mul VarX b) = b
-differentiate (Mul a VarX) = a
-differentiate (Sin a) = (Cos a)
-differentiate (Cos a) = (Sub (Num 0) (Sin a))
+differentiate (Mul (VarX) (VarX)) = (Mul (Num 2) VarX)
+differentiate (VarX) = (Num 1)
 differentiate (Num a) = (Num 0)
 differentiate (Add a b) = Add (differentiate a) (differentiate b)
+differentiate (Mul VarX b) = b
+differentiate (Mul a VarX) = a
+-- Chain rule
+differentiate (Sin a) = (Mul (Cos a) (differentiate a) )
+differentiate (Cos a) = (Sub (Num 0) (Mul (Sin a) (differentiate a)))
+
+
+-- Product rule
+differentiate (Mul a b) = (Add (Mul (differentiate a) b) (Mul a (differentiate b)))
