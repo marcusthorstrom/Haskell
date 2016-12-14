@@ -84,23 +84,6 @@ string (c:s) = do c' <- char c
                   s' <- string s
                   return (c':s')
 
-integer :: Parser Double
-integer = negInteger <|> posInteger
---integer = oneOrMore digit >>= \ds -> return (read ds)
-
-posInteger :: Parser Double
-posInteger = nat <|> (oneOrMore digit >>= return . read)
-
-negInteger :: Parser Double
-negInteger = fmap negate (char '-' *> nat) <|>
-              fmap negate (char '-' *> (oneOrMore digit >>= return . read))
-
-nat :: Parser Double
-nat = do
-  bf <- oneOrMore digit
-  af <- (char '.' <:> oneOrMore digit)
-  return (read (bf++af) :: Double)
-
 
 num :: Parser Expr
 num = fmap Num readsP <|>
@@ -112,8 +95,6 @@ sub = foldr1 Sub `fmap` chain term (char '-')
 term = foldr1 Mul `fmap` chain sincos (char '*')
 factor = char '(' *> expr <* char ')' <|> num
 
---var = char 'x'
-
 sincos = string "sin" *> fmap Sin factor <|>
          string "cos" *> fmap Cos factor <|>
          factor
@@ -124,8 +105,6 @@ readExpr s = let s' = map toLower (filter (not.isSpace) s)
               in case parse expr s' of
                 Just (e, "") -> Just e
                 _            -> Nothing
-
-
 
 
 -- F
